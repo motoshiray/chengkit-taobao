@@ -7,7 +7,10 @@ const {browserGuard,VERIFICATION_COOLDOWN_MS}=require("./browser-guard");
 const runFile = promisify(execFile);
 const NODE = process.execPath;
 const CLI = require("node:path").join(__dirname,"opencli-launch.cjs");
-const CHROME = process.env.TAOBAO_CHROME_PATH||[require('node:path').join(process.env.ProgramFiles||'C:/Program Files','Google/Chrome/Application/chrome.exe'),require('node:path').join(process.env.LOCALAPPDATA||'','Google/Chrome/Application/chrome.exe')].find(p=>require('node:fs').existsSync(p));
+const CHROME_CANDIDATES = process.platform === 'darwin'
+  ? ['/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', require('node:path').join(require('node:os').homedir(), 'Applications/Google Chrome.app/Contents/MacOS/Google Chrome')]
+  : [require('node:path').join(process.env.ProgramFiles||'C:/Program Files','Google/Chrome/Application/chrome.exe'),require('node:path').join(process.env.LOCALAPPDATA||'','Google/Chrome/Application/chrome.exe')];
+const CHROME = process.env.TAOBAO_CHROME_PATH||CHROME_CANDIDATES.find(p=>require('node:fs').existsSync(p));
 const PROFILE = require('./browser-profile.cjs').read();
 
 const tool = {
@@ -44,7 +47,8 @@ function validate(args) {
 
 // Do not pass the tunnel's API key or unrelated credentials to Chrome/OpenCLI.
 function childEnv(source = process.env) {
-  const allowed = /^(PATH|PATHEXT|SYSTEMROOT|WINDIR|COMSPEC|USERPROFILE|APPDATA|LOCALAPPDATA|TEMP|TMP|HOMEDRIVE|HOMEPATH|HTTP_PROXY|HTTPS_PROXY|ALL_PROXY|NO_PROXY)$/i;
+  // HOME/USER/LOGNAME/TMPDIR/LANG are the macOS equivalents of the Windows variables below.
+  const allowed = /^(PATH|PATHEXT|SYSTEMROOT|WINDIR|COMSPEC|USERPROFILE|APPDATA|LOCALAPPDATA|TEMP|TMP|TMPDIR|HOMEDRIVE|HOMEPATH|HOME|USER|LOGNAME|LANG|HTTP_PROXY|HTTPS_PROXY|ALL_PROXY|NO_PROXY)$/i;
   return Object.fromEntries(Object.entries(source).filter(([k]) => allowed.test(k)));
 }
 
@@ -74,7 +78,7 @@ async function launchChrome(targetUrl = 'https://www.taobao.com/') {
 
 async function cli(args, timeout = 90000) {
   return runFile(NODE, [CLI, ...args], {
-    shell: false, windowsHide: true, timeout, maxBuffer: 512 * 1024, encoding: "utf8", env: {...childEnv(),USERPROFILE:require("node:path").join(__dirname,"..","state","opencli-home")},
+    shell: false, windowsHide: true, timeout, maxBuffer: 512 * 1024, encoding: "utf8", env: {...childEnv(),USERPROFILE:require("node:path").join(__dirname,"..","state","opencli-home"),HOME:require("node:path").join(__dirname,"..","state","opencli-home")},
   });
 }
 
